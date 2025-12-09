@@ -6,7 +6,7 @@ const SavingsPopup: React.FC = () => {
   const [isApplying, setIsApplying] = useState(false);
   const [message, setMessage] = useState('');
 
-  if (!showSavingsPopup || !couponSuggestion) return null;
+  if (!showSavingsPopup || !couponSuggestion || !couponSuggestion.recommendedCoupon) return null;
 
   const { recommendedCoupon, upsellSuggestion } = couponSuggestion;
 

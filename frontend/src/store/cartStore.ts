@@ -178,6 +178,13 @@ export const useCartStore = create<CartStore>((set, get) => ({
       const response = await axios.get(`${API_URL}/coupon-suggestion`);
       if (response.data) {
         console.log('💡 Coupon suggestion received:', response.data);
+        
+        // Validate the data structure
+        if (!response.data.recommendedCoupon) {
+          console.error('❌ Invalid coupon suggestion structure:', response.data);
+          return;
+        }
+        
         set({ 
           couponSuggestion: response.data,
           showSavingsPopup: true 
