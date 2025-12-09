@@ -171,78 +171,57 @@ app.post('/simulate-boltic', async (req: Request, res: Response) => {
   console.log('\n🤖 [SIMULATE] Triggering BoltIc Analysis...');
   console.log('Cart data:', JSON.stringify(cart, null, 2));
   
-  try {
-    // Call actual BoltIc workflow
-    const bolticResult = await callBolticWorkflow(cart);
+  // Always use fallback for demo - BoltIc webhook is async and takes time
+  console.log('⚡ Using instant fallback for demo...');
+  
+  const subtotal = cart?.subtotal || 0;
+  let recommendation = null;
+  
+  if (subtotal >= 1000) {
+    recommendation = {
+      recommendedCoupon: {
+        code: 'FLAT200',
+        discount: 200,
+        reason: '🎧 Save ₹200 on electronics worth ₹' + subtotal + '!',
+        type: 'flat',
+        savingsPercent: Math.round((200 / subtotal) * 100),
+        newTotal: subtotal - 200
+      },
+      cartSnapshot: cart
+    };
+  } else if (subtotal >= 100) {
+    const discount = Math.min(Math.floor(subtotal * 0.5), 200);
+    recommendation = {
+      recommendedCoupon: {
+        code: 'WELCOME50',
+        discount: discount,
+        reason: '💰 You\'re saving ₹' + discount + ' with WELCOME50!',
+        type: 'percent',
+        savingsPercent: Math.round((discount / subtotal) * 100),
+        newTotal: subtotal - discount
+      },
+      cartSnapshot: cart
+    };
+  }
+  
+  if (recommendation) {
+    console.log('✅ Recommendation ready:', JSON.stringify(recommendation.recommendedCoupon, null, 2));
     
-    console.log('✅ BoltIc returned:', JSON.stringify(bolticResult, null, 2));
-    
-    // Validate BoltIc response structure
-    if (!bolticResult || !bolticResult.recommendedCoupon) {
-      console.warn('⚠️  BoltIc response missing recommendedCoupon, using fallback');
-      throw new Error('Invalid BoltIc response structure');
-    }
-    
-    // Store the result
     (global as any).latestCouponSuggestion = {
-      ...bolticResult,
-      timestamp: new Date().toISOString()
+      ...recommendation,
+      timestamp: new Date().toISOString(),
+      source: 'instant-demo'
     };
     
-    res.json({ 
-      success: true, 
-      recommendation: bolticResult,
-      source: 'boltic-ai'
-    });
-  } catch (error: any) {
-    console.error('❌ BoltIc API call failed, falling back to local simulation');
-    console.error('Error details:', error.message);
-    
-    // Fallback to local simulation if BoltIc fails
-    let recommendation = null;
-    const subtotal = cart?.subtotal || 0;
-    
-    if (subtotal >= 1000) {
-      recommendation = {
-        recommendedCoupon: {
-          code: 'FLAT200',
-          discount: 200,
-          reason: 'Save ₹200 on your electronics purchase!',
-          type: 'flat',
-          savingsPercent: Math.round((200 / subtotal) * 100),
-          newTotal: subtotal - 200
-        },
-        cartSnapshot: cart
-      };
-    } else if (subtotal >= 100) {
-      const discount = Math.min(Math.floor(subtotal * 0.5), 200);
-      recommendation = {
-        recommendedCoupon: {
-          code: 'WELCOME50',
-          discount: discount,
-          reason: 'Get 50% off your order!',
-          type: 'percent',
-          savingsPercent: Math.round((discount / subtotal) * 100),
-          newTotal: subtotal - discount
-        },
-        cartSnapshot: cart
-      };
-    }
-    
-    if (recommendation) {
-      console.log('✅ Using fallback recommendation:', JSON.stringify(recommendation, null, 2));
-      
-      (global as any).latestCouponSuggestion = {
-        ...recommendation,
-        timestamp: new Date().toISOString(),
-        source: 'local-fallback'
-      };
-      
-      res.json({ success: true, recommendation, source: 'fallback' });
-    } else {
-      res.json({ success: false, message: 'No suitable coupon found' });
-    }
+    res.json({ success: true, recommendation, source: 'instant-demo' });
+  } else {
+    res.json({ success: false, message: 'Cart value too low (minimum ₹100)' });
   }
+  
+  // Also trigger BoltIc in background (async, will update via webhook later)
+  callBolticWorkflow(cart).catch(err => {
+    console.log('⚠️  Background BoltIc call failed (not critical):', err.message);
+  });
 });
 
 // Analytics Dashboard Endpoint

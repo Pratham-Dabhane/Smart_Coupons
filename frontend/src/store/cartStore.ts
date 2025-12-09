@@ -163,10 +163,28 @@ export const useCartStore = create<CartStore>((set, get) => ({
       const response = await axios.post(`${API_URL}/simulate-boltic`, { cart });
       
       if (response.data.success) {
-        // Wait a bit then fetch the suggestion
-        setTimeout(() => {
+        console.log('✅ BoltIc workflow triggered, polling for result...');
+        // BoltIc workflows are async, poll multiple times
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        const pollForResult = () => {
+          attempts++;
+          console.log(`🔍 Polling attempt ${attempts}/${maxAttempts}...`);
+          
           get().fetchCouponSuggestion();
-        }, 500);
+          
+          // Keep polling if no result yet
+          if (attempts < maxAttempts && !get().couponSuggestion) {
+            setTimeout(pollForResult, 1000); // Poll every 1 second
+          } else if (attempts >= maxAttempts && !get().couponSuggestion) {
+            console.error('❌ Timeout waiting for BoltIc result');
+            alert('BoltIc is taking longer than expected. Please try again.');
+          }
+        };
+        
+        // Start polling after 2 seconds (give BoltIc time to process)
+        setTimeout(pollForResult, 2000);
       }
     } catch (error) {
       console.error('Failed to simulate BoltIc:', error);
@@ -177,13 +195,21 @@ export const useCartStore = create<CartStore>((set, get) => ({
     try {
       const response = await axios.get(`${API_URL}/coupon-suggestion`);
       if (response.data) {
-        console.log('💡 Coupon suggestion received:', response.data);
+        console.log('💡 Raw response from backend:', response.data);
+        
+        // Check if this is a workflow execution response (not the actual result yet)
+        if (response.data.message && response.data.message.includes('Workflow execution')) {
+          console.log('⏳ Workflow still executing, waiting for result...');
+          return; // Don't show popup yet, keep polling
+        }
         
         // Validate the data structure
         if (!response.data.recommendedCoupon) {
           console.error('❌ Invalid coupon suggestion structure:', response.data);
           return;
         }
+        
+        console.log('✅ Valid coupon received:', response.data.recommendedCoupon);
         
         set({ 
           couponSuggestion: response.data,
