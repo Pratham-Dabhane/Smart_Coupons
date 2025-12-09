@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import fetch from 'node-fetch';
 import cartRoutes from './routes/cart';
 
 const app = express();

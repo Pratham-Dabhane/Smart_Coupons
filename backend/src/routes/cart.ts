@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
-import * as fs from 'fs';
 import * as path from 'path';
 
 const router = Router();
 
-// Read coupons from JSON file
-const couponsPath = path.join(__dirname, '../../data/coupons.json');
-const coupons = JSON.parse(fs.readFileSync(couponsPath, 'utf-8'));
+// Inline coupon data to avoid file system issues in deployment
+const coupons = [
+  {"code":"WELCOME50","type":"percent","value":50,"min_cart_value":100,"max_discount":200,"allowed_categories":[]},
+  {"code":"FLAT200","type":"flat","value":200,"min_cart_value":1000,"max_discount":200,"allowed_categories":["electronics"]},
+  {"code":"FOOD10","type":"percent","value":10,"min_cart_value":200,"max_discount":100,"allowed_categories":["grocery","food"]}
+];
 
 interface CartItem {
   productId: string;
