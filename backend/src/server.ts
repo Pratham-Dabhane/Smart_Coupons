@@ -179,6 +179,51 @@ app.post('/simulate-boltic', async (req: Request, res: Response) => {
   }
 });
 
+// Get available coupons (NEW ENDPOINT)
+app.get('/coupons', (req: Request, res: Response) => {
+  const coupons = [
+    {
+      code: "WELCOME50",
+      type: "percent",
+      value: 50,
+      min_cart_value: 100,
+      max_discount: 200,
+      allowed_categories: [],
+      description: "50% off on orders above ₹100"
+    },
+    {
+      code: "FLAT200",
+      type: "flat",
+      value: 200,
+      min_cart_value: 1000,
+      max_discount: 200,
+      allowed_categories: ["electronics"],
+      description: "Flat ₹200 off on electronics"
+    },
+    {
+      code: "FOOD10",
+      type: "percent",
+      value: 10,
+      min_cart_value: 200,
+      max_discount: 100,
+      allowed_categories: ["grocery", "food"],
+      description: "10% off on grocery items"
+    },
+    {
+      code: "FASHION15",
+      type: "percent",
+      value: 15,
+      min_cart_value: 500,
+      max_discount: 300,
+      allowed_categories: ["fashion"],
+      description: "15% off on fashion items"
+    }
+  ];
+  
+  console.log('📋 Coupons list requested');
+  res.json(coupons);
+});
+
 // Health check
 app.get('/health', (req: Request, res: Response) => {
   res.json({ 
