@@ -32,6 +32,16 @@ interface CouponSuggestion {
     code: string;
     discount: number;
     reason: string;
+    type?: string;
+    savingsPercent?: number;
+    newTotal?: number;
+  };
+  upsellSuggestion?: {
+    message: string;
+    code: string;
+    amountNeeded: number;
+    newDiscount: number;
+    extraSavings: number;
   };
   cartSnapshot: Cart;
   timestamp: string;

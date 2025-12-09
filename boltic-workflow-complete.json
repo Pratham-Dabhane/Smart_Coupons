@@ -1,0 +1,198 @@
+{
+  "meta": {},
+  "name": "Smart Coupons - Cart Optimizer",
+  "description": "Receives cart updates, analyzes items, and returns best coupon recommendation",
+  "active": true,
+  "version": "1.0.0",
+  "status": "published",
+  "source": "boltic",
+  "parent_id": "",
+  "global_variables": {
+    "BACKEND_URL": "https://smart-coupons.onrender.com",
+    "WEBHOOK_SECRET": "my_super_secret_123"
+  },
+  "retry_config": {
+    "initial_interval": 1000,
+    "maximum_attempts": 2,
+    "maximum_interval": 5000,
+    "backoff_coefficient": 2
+  },
+  "nodes": [
+    {
+      "id": "webhook1",
+      "data": {
+        "name": "Webhook - Receive Cart Update",
+        "type": "webhook",
+        "properties": {
+          "auth_type": "none",
+          "test_payload": {
+            "cart": {
+              "items": [
+                {
+                  "productId": "p1",
+                  "name": "Wireless Headphones",
+                  "price": 1499,
+                  "qty": 2,
+                  "category": "electronics"
+                }
+              ],
+              "subtotal": 2998
+            },
+            "timestamp": "2025-12-09T16:00:00.000Z",
+            "source": "smart-coupons-app"
+          },
+          "integration_slug": "blt-int.webhook"
+        }
+      },
+      "type": "trigger",
+      "position": { "x": 50, "y": 50 },
+      "outgoingPorts": [{ "id": "normalizeCart" }]
+    },
+    {
+      "id": "normalizeCart",
+      "data": {
+        "name": "Normalize Cart Data",
+        "type": "functionActivity",
+        "properties": {
+          "func": "const IN = (typeof payload !== 'undefined' && payload) || (typeof input !== 'undefined' && input) || {};\nconst body = IN.body || IN.payload || IN || {};\nconst rawCart = body.cart || body || { items: [], subtotal: 0 };\n\nconst items = (rawCart.items || []).map(item => ({\n  id: item.productId || item.id,\n  name: item.name || 'Unknown',\n  price: Math.round(Number(item.price || 0)),\n  qty: Math.max(1, Math.round(Number(item.qty || item.quantity || 1))),\n  category: item.category || 'uncategorized'\n}));\n\nconst subtotal = Math.round(rawCart.subtotal || items.reduce((s, i) => s + i.price * i.qty, 0));\n\nconst categories = [...new Set(items.map(i => i.category))].filter(Boolean);\n\nreturn {\n  cart: {\n    items: items,\n    subtotal: subtotal,\n    itemCount: items.length\n  },\n  categories: categories,\n  metadata: {\n    timestamp: body.timestamp || new Date().toISOString(),\n    source: body.source || 'unknown'\n  }\n};",
+          "language": "javascript",
+          "input_data": { "payload": "{{payload}}" },
+          "integration_slug": "blt-int.function"
+        }
+      },
+      "type": "normal",
+      "position": { "x": 400, "y": 50 },
+      "incomingPorts": ["webhook1"],
+      "outgoingPorts": [{ "id": "getCoupons" }]
+    },
+    {
+      "id": "getCoupons",
+      "data": {
+        "name": "Fetch Available Coupons",
+        "type": "apiActivity",
+        "properties": {
+          "method": "get",
+          "endpoint": "{{env.BACKEND_URL}}/coupons",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body_type": "none",
+          "api_timeout": 5000,
+          "retry_config": {
+            "initial_interval": 1000,
+            "maximum_attempts": 2,
+            "maximum_interval": 3000,
+            "backoff_coefficient": 2
+          },
+          "branches": [
+            { "ref": "success" },
+            { "ref": "failure" }
+          ],
+          "integration_slug": "blt-int.api"
+        }
+      },
+      "type": "condition",
+      "position": { "x": 750, "y": 50 },
+      "incomingPorts": ["normalizeCart"],
+      "outgoingPorts": [
+        { "id": "computeBest", "condition": "success" },
+        { "id": "fallbackCoupons", "condition": "failure" }
+      ]
+    },
+    {
+      "id": "fallbackCoupons",
+      "data": {
+        "name": "Fallback - Hardcoded Coupons",
+        "type": "functionActivity",
+        "properties": {
+          "func": "return {\n  coupons: [\n    {code:'WELCOME50',type:'percent',value:50,min_cart_value:100,max_discount:200,allowed_categories:[]},\n    {code:'FLAT200',type:'flat',value:200,min_cart_value:1000,max_discount:200,allowed_categories:['electronics']},\n    {code:'FOOD10',type:'percent',value:10,min_cart_value:200,max_discount:100,allowed_categories:['grocery','food']},\n    {code:'FASHION15',type:'percent',value:15,min_cart_value:500,max_discount:300,allowed_categories:['fashion']}\n  ]\n};",
+          "language": "javascript",
+          "input_data": {},
+          "integration_slug": "blt-int.function"
+        }
+      },
+      "type": "normal",
+      "position": { "x": 750, "y": 200 },
+      "incomingPorts": ["getCoupons"],
+      "outgoingPorts": [{ "id": "computeBest" }]
+    },
+    {
+      "id": "computeBest",
+      "data": {
+        "name": "Compute Best Coupon",
+        "type": "functionActivity",
+        "properties": {
+          "func": "const IN = (typeof payload !== 'undefined' && payload) || (typeof input !== 'undefined' && input) || {};\nconst cart = IN.cart || (IN.normalizeCart && IN.normalizeCart.cart) || {};\nconst subtotal = Math.round(cart.subtotal || 0);\nconst items = cart.items || [];\nconst categories = IN.categories || (IN.normalizeCart && IN.normalizeCart.categories) || [];\n\nconst coupons = IN.coupons || (IN.getCoupons && IN.getCoupons.body) || (IN.fallbackCoupons && IN.fallbackCoupons.coupons) || [];\n\nfunction eligibleSubtotal(coupon) {\n  if (!coupon.allowed_categories || coupon.allowed_categories.length === 0) return subtotal;\n  return items.filter(it => coupon.allowed_categories.includes(it.category)).reduce((s, it) => s + it.price * it.qty, 0);\n}\n\nlet best = null;\n\nfor (const c of coupons) {\n  const eligible = eligibleSubtotal(c);\n  if (eligible < (c.min_cart_value || 0)) continue;\n\n  let rawDiscount = 0;\n  if (c.type === 'percent') {\n    rawDiscount = Math.floor((eligible * c.value) / 100);\n  } else if (c.type === 'flat') {\n    rawDiscount = Math.round(c.value);\n  }\n\n  const discount = Math.min(rawDiscount, c.max_discount || 999999);\n  const finalPrice = Math.max(0, subtotal - discount);\n\n  const candidate = {\n    code: c.code,\n    type: c.type,\n    value: c.value,\n    discount: discount,\n    newTotal: finalPrice,\n    savingsPercent: Math.round((discount / subtotal) * 100),\n    eligible: eligible\n  };\n\n  if (!best || candidate.discount > best.discount) {\n    best = candidate;\n  }\n}\n\nif (!best) {\n  return {\n    success: false,\n    recommendedCoupon: null,\n    message: 'No eligible coupons available',\n    cartSnapshot: cart\n  };\n}\n\nlet reason = '';\nif (categories.includes('electronics')) {\n  reason = `🎧 Save ₹${best.discount} on electronics worth ₹${subtotal}!`;\n} else if (categories.includes('grocery') || categories.includes('food')) {\n  reason = `🛒 Get ₹${best.discount} off your grocery order!`;\n} else if (categories.includes('fashion')) {\n  reason = `👕 Fashion deal: Save ₹${best.discount} now!`;\n} else {\n  reason = `💰 You're saving ₹${best.discount} with ${best.code}!`;\n}\n\nif (best.savingsPercent >= 20) {\n  reason += ' Limited time offer!';\n}\n\nreturn {\n  success: true,\n  recommendedCoupon: {\n    code: best.code,\n    discount: best.discount,\n    reason: reason,\n    type: best.type,\n    savingsPercent: best.savingsPercent,\n    newTotal: best.newTotal\n  },\n  cartSnapshot: cart,\n  analysis: {\n    appliedLogic: `Best match for ${categories.join(', ')} categories`,\n    confidence: 0.95\n  },\n  metadata: {\n    processedAt: new Date().toISOString(),\n    source: 'boltic-ai',\n    version: '1.0.0'\n  }\n};",
+          "language": "javascript",
+          "input_data": {
+            "payload": "{{normalizeCart.result}}",
+            "getCoupons": "{{getCoupons.result}}",
+            "fallbackCoupons": "{{fallbackCoupons.result}}"
+          },
+          "integration_slug": "blt-int.function"
+        }
+      },
+      "type": "normal",
+      "position": { "x": 1100, "y": 50 },
+      "incomingPorts": ["getCoupons", "fallbackCoupons"],
+      "outgoingPorts": [{ "id": "returnResult" }]
+    },
+    {
+      "id": "returnResult",
+      "data": {
+        "name": "Return Response",
+        "type": "functionActivity",
+        "properties": {
+          "func": "const IN = (typeof payload !== 'undefined' && payload) || (typeof input !== 'undefined' && input) || {};\nreturn IN;",
+          "language": "javascript",
+          "input_data": { "payload": "{{computeBest.result}}" },
+          "integration_slug": "blt-int.function"
+        }
+      },
+      "type": "normal",
+      "position": { "x": 1450, "y": 50 },
+      "incomingPorts": ["computeBest"],
+      "outgoingPorts": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "webhook1",
+      "target": "normalizeCart",
+      "type": "smooth"
+    },
+    {
+      "id": "e2",
+      "source": "normalizeCart",
+      "target": "getCoupons",
+      "type": "smooth"
+    },
+    {
+      "id": "e3",
+      "source": "getCoupons",
+      "target": "computeBest",
+      "type": "smooth",
+      "label": "success"
+    },
+    {
+      "id": "e4",
+      "source": "getCoupons",
+      "target": "fallbackCoupons",
+      "type": "smooth",
+      "label": "failure"
+    },
+    {
+      "id": "e5",
+      "source": "fallbackCoupons",
+      "target": "computeBest",
+      "type": "smooth"
+    },
+    {
+      "id": "e6",
+      "source": "computeBest",
+      "target": "returnResult",
+      "type": "smooth"
+    }
+  ]
+}

@@ -11,6 +11,34 @@ const PORT = 3001;
 const BOLTIC_API_URL = "https://asia-south1.api.boltic.io/service/webhook/temporal/v1.0/97613e6f-451c-4183-8aad-7ace0748086a/workflows/execute/c71f5b89-eee8-47c1-bcf7-68f7b54c51c2";
 const WEBHOOK_SECRET = "my_super_secret_123";
 
+// Analytics Data Store
+let analyticsData = {
+  totalCartsOptimized: 0,
+  totalSavings: 0,
+  recentOptimizations: [] as Array<{
+    timestamp: string;
+    cartValue: number;
+    couponApplied: string;
+    savingsAmount: number;
+  }>
+};
+
+// Track optimization (call this when coupon is applied)
+function trackOptimization(cartValue: number, couponCode: string, savingsAmount: number) {
+  analyticsData.totalCartsOptimized++;
+  analyticsData.totalSavings += savingsAmount;
+  analyticsData.recentOptimizations.unshift({
+    timestamp: new Date().toISOString(),
+    cartValue,
+    couponApplied: couponCode,
+    savingsAmount
+  });
+  // Keep only last 10
+  if (analyticsData.recentOptimizations.length > 10) {
+    analyticsData.recentOptimizations = analyticsData.recentOptimizations.slice(0, 10);
+  }
+}
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
@@ -27,7 +55,12 @@ app.use('/cart', cartRoutes);
 // Helper function to call BoltIc API
 async function callBolticWorkflow(cartData: any) {
   try {
+    // Detect user segment
+    const isVIP = cartData.subtotal > 5000; // VIP if cart > ₹5000
+    const isNewUser = !cartData.userId || cartData.userId?.includes('new');
+    
     console.log('\n🚀 Sending cart data to BoltIc AI...');
+    console.log('User Segment:', isVIP ? '👑 VIP' : isNewUser ? '🆕 New User' : '👤 Regular');
     console.log('Payload:', JSON.stringify(cartData, null, 2));
     
     const response = await fetch(BOLTIC_API_URL, {
@@ -38,6 +71,7 @@ async function callBolticWorkflow(cartData: any) {
       },
       body: JSON.stringify({
         cart: cartData,
+        userSegment: isVIP ? 'vip' : isNewUser ? 'new' : 'regular',
         timestamp: new Date().toISOString(),
         source: 'smart-coupons-app'
       })
@@ -97,6 +131,19 @@ app.post('/events/cart-updated', async (req: Request, res: Response) => {
 app.post('/coupon-result', (req: Request, res: Response) => {
   console.log('\n💡 [WEBHOOK] Coupon Suggestion Received from BoltIc');
   console.log('Recommendation:', JSON.stringify(req.body, null, 2));
+  
+  const { recommendedCoupon, cartSnapshot } = req.body;
+  
+  // Track this optimization
+  if (recommendedCoupon && cartSnapshot) {
+    trackOptimization(
+      cartSnapshot.subtotal || 0,
+      recommendedCoupon.code,
+      recommendedCoupon.discount || 0
+    );
+    console.log('📊 Analytics updated: Total carts:', analyticsData.totalCartsOptimized, 'Total savings: ₹', analyticsData.totalSavings);
+  }
+  
   console.log('---');
   
   // Store the latest recommendation in memory for frontend to fetch
@@ -177,6 +224,35 @@ app.post('/simulate-boltic', async (req: Request, res: Response) => {
       res.json({ success: false, message: 'No suitable coupon found' });
     }
   }
+});
+
+// Analytics Dashboard Endpoint
+app.get('/analytics/dashboard', (req: Request, res: Response) => {
+  const avgSavings = analyticsData.totalCartsOptimized > 0 
+    ? analyticsData.totalSavings / analyticsData.totalCartsOptimized 
+    : 0;
+
+  // Find most used coupon
+  const couponCounts: Record<string, number> = {};
+  analyticsData.recentOptimizations.forEach(opt => {
+    couponCounts[opt.couponApplied] = (couponCounts[opt.couponApplied] || 0) + 1;
+  });
+  const topCoupon = Object.keys(couponCounts).reduce((a, b) => 
+    couponCounts[a] > couponCounts[b] ? a : b, 'WELCOME50');
+
+  // Simulated conversion rate (15-25% uplift)
+  const conversionRate = Math.round(15 + Math.random() * 10);
+
+  console.log('📊 Analytics dashboard requested');
+  
+  res.json({
+    totalCartsOptimized: analyticsData.totalCartsOptimized,
+    totalSavings: Math.round(analyticsData.totalSavings),
+    avgSavingsPerCart: Math.round(avgSavings),
+    topCoupon: topCoupon,
+    conversionRate: conversionRate,
+    recentOptimizations: analyticsData.recentOptimizations
+  });
 });
 
 // Get available coupons (NEW ENDPOINT)
