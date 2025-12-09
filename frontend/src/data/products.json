@@ -1,0 +1,8 @@
+[
+  {"id":"p1","name":"Wireless Headphones","price":1499,"category":"electronics","img":"/placeholder1.png"},
+  {"id":"p2","name":"Fitness Band","price":999,"category":"electronics","img":"/placeholder2.png"},
+  {"id":"p3","name":"Coffee Beans (500g)","price":499,"category":"grocery","img":"/placeholder3.png"},
+  {"id":"p4","name":"Running Shoes","price":2499,"category":"fashion","img":"/placeholder4.png"},
+  {"id":"p5","name":"T-Shirt Pack","price":799,"category":"fashion","img":"/placeholder5.png"},
+  {"id":"p6","name":"Protein Bar Box","price":1299,"category":"grocery","img":"/placeholder6.png"}
+]

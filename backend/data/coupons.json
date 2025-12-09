@@ -1,0 +1,5 @@
+[
+  {"code":"WELCOME50","type":"percent","value":50,"min_cart_value":100,"max_discount":200,"allowed_categories":[]},
+  {"code":"FLAT200","type":"flat","value":200,"min_cart_value":1000,"max_discount":200,"allowed_categories":["electronics"]},
+  {"code":"FOOD10","type":"percent","value":10,"min_cart_value":200,"max_discount":100,"allowed_categories":["grocery","food"]}
+]
