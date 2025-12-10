@@ -300,7 +300,12 @@ app.post('/simulate-boltic', async (req: Request, res: Response) => {
       source: 'instant-demo'
     };
     
-    res.json({ success: true, recommendation, source: 'instant-demo' });
+    res.json({ 
+      success: true, 
+      ...recommendation,
+      timestamp: new Date().toISOString(),
+      source: 'instant-demo' 
+    });
   } else {
     res.json({ success: false, message: 'Cart value too low (minimum ₹100)' });
   }
