@@ -378,6 +378,33 @@ app.get('/coupons', (req: Request, res: Response) => {
       max_discount: 300,
       allowed_categories: ["fashion"],
       description: "15% off on fashion items"
+    },
+    {
+      code: "GROCERY20",
+      type: "percent",
+      value: 20,
+      min_cart_value: 800,
+      max_discount: 250,
+      allowed_categories: ["grocery"],
+      description: "20% off on grocery above ₹800"
+    },
+    {
+      code: "TECH100",
+      type: "flat",
+      value: 100,
+      min_cart_value: 2500,
+      max_discount: 100,
+      allowed_categories: ["electronics"],
+      description: "Flat ₹100 off on electronics above ₹2500"
+    },
+    {
+      code: "MEGA500",
+      type: "flat",
+      value: 500,
+      min_cart_value: 5000,
+      max_discount: 500,
+      allowed_categories: [],
+      description: "Mega ₹500 off on orders above ₹5000"
     }
   ];
   
