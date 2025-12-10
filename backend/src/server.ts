@@ -175,149 +175,32 @@ app.post('/simulate-boltic', async (req: Request, res: Response) => {
   console.log('\n🤖 [SIMULATE] Triggering BoltIc Analysis...');
   console.log('Cart data:', JSON.stringify(cart, null, 2));
   
-  // Always use fallback for demo - BoltIc webhook is async and takes time
-  console.log('⚡ Calculating instant recommendation with upsell...');
+  // Clear previous suggestion
+  (global as any).latestCouponSuggestion = null;
   
-  const subtotal = cart?.subtotal || 0;
-  const items = cart?.items || [];
-  
-  // Get categories from items
-  const categories = [...new Set(items.map((item: any) => item.category))].filter(Boolean);
-  
-  // All available coupons
-  const allCoupons = [
-    {code: 'WELCOME50', min: 100, maxDiscount: 200, type: 'percent', value: 50, categories: []},
-    {code: 'FOOD10', min: 200, maxDiscount: 100, type: 'percent', value: 10, categories: ['grocery', 'food']},
-    {code: 'FASHION15', min: 500, maxDiscount: 300, type: 'percent', value: 15, categories: ['fashion']},
-    {code: 'GROCERY20', min: 800, maxDiscount: 250, type: 'percent', value: 20, categories: ['grocery']},
-    {code: 'FLAT200', min: 1000, maxDiscount: 200, type: 'flat', value: 200, categories: ['electronics']},
-    {code: 'TECH100', min: 2500, maxDiscount: 100, type: 'flat', value: 100, categories: ['electronics']},
-    {code: 'MEGA500', min: 5000, maxDiscount: 500, type: 'flat', value: 500, categories: []}
-  ];
-  
-  // Find best eligible coupon
-  let bestCoupon = null;
-  let bestDiscount = 0;
-  
-  for (const c of allCoupons) {
-    // Check if eligible
-    if (subtotal < c.min) continue;
+  try {
+    // Call BoltIc and WAIT for result
+    console.log('⏳ Waiting for BoltIc AI analysis...');
+    const bolticResult = await callBolticWorkflow(cart);
     
-    // Check category match
-    if (c.categories.length > 0) {
-      const hasMatch = c.categories.some(cat => categories.includes(cat));
-      if (!hasMatch) continue;
-    }
+    console.log('✅ BoltIc analysis complete:', JSON.stringify(bolticResult, null, 2));
     
-    // Calculate discount
-    let discount = 0;
-    if (c.type === 'percent') {
-      discount = Math.min(Math.floor(subtotal * c.value / 100), c.maxDiscount);
-    } else {
-      discount = Math.min(c.value, c.maxDiscount);
-    }
-    
-    if (discount > bestDiscount) {
-      bestDiscount = discount;
-      bestCoupon = {
-        code: c.code,
-        discount: discount,
-        type: c.type,
-        value: c.value,
-        savingsPercent: Math.round((discount / subtotal) * 100),
-        newTotal: subtotal - discount
-      };
-    }
-  }
-  
-  // Calculate upsell suggestion
-  let upsellSuggestion = null;
-  
-  for (const c of allCoupons) {
-    // Skip if already have this coupon or better
-    if (bestCoupon && bestCoupon.discount >= c.maxDiscount) continue;
-    
-    // Check if close to unlocking
-    if (subtotal < c.min) {
-      const needed = c.min - subtotal;
-      if (needed <= 1000) { // Show if within ₹1000
-        // Calculate potential discount
-        let potentialDiscount = 0;
-        if (c.type === 'percent') {
-          potentialDiscount = Math.min(Math.floor(c.min * c.value / 100), c.maxDiscount);
-        } else {
-          potentialDiscount = c.maxDiscount;
-        }
-        
-        const extraSavings = potentialDiscount - (bestCoupon ? bestCoupon.discount : 0);
-        
-        if (extraSavings > 0) {
-          upsellSuggestion = {
-            message: 'Add ₹' + needed + ' more to unlock ' + c.code + '!',
-            code: c.code,
-            amountNeeded: needed,
-            newDiscount: potentialDiscount,
-            extraSavings: extraSavings
-          };
-          break; // Take first/best upsell
-        }
-      }
-    }
-  }
-  
-  // Generate reason
-  let reason = '';
-  if (!bestCoupon) {
-    reason = 'Add items worth ₹' + (100 - subtotal) + ' to unlock coupons!';
-  } else if (categories.includes('electronics')) {
-    reason = '🎧 Save ₹' + bestCoupon.discount + ' on electronics worth ₹' + subtotal + '!';
-  } else if (categories.includes('grocery') || categories.includes('food')) {
-    reason = '🛒 Get ₹' + bestCoupon.discount + ' off your grocery order!';
-  } else if (categories.includes('fashion')) {
-    reason = '👕 Fashion deal: Save ₹' + bestCoupon.discount + ' now!';
-  } else {
-    reason = '💰 You\'re saving ₹' + bestCoupon.discount + ' with ' + bestCoupon.code + '!';
-  }
-  
-  if (bestCoupon && bestCoupon.savingsPercent >= 20) {
-    reason += ' Limited time offer!';
-  }
-  
-  const recommendation = {
-    recommendedCoupon: bestCoupon ? {
-      ...bestCoupon,
-      reason: reason
-    } : null,
-    upsellSuggestion: upsellSuggestion,
-    cartSnapshot: cart
-  };
-  
-  if (recommendation.recommendedCoupon) {
-    console.log('✅ Recommendation ready:', JSON.stringify(recommendation.recommendedCoupon, null, 2));
-    if (upsellSuggestion) {
-      console.log('💡 Upsell suggestion:', upsellSuggestion.message);
-    }
-    
-    (global as any).latestCouponSuggestion = {
-      ...recommendation,
-      timestamp: new Date().toISOString(),
-      source: 'instant-demo'
-    };
-    
+    // Note: BoltIc will send result via webhook to /coupon-result
+    // Frontend should poll /coupon-suggestion endpoint
     res.json({ 
       success: true, 
-      ...recommendation,
-      timestamp: new Date().toISOString(),
-      source: 'instant-demo' 
+      message: 'BoltIc workflow triggered, poll /coupon-suggestion for result',
+      executionId: bolticResult.executionId || 'unknown',
+      timestamp: new Date().toISOString()
     });
-  } else {
-    res.json({ success: false, message: 'Cart value too low (minimum ₹100)' });
+  } catch (error: any) {
+    console.error('❌ BoltIc call failed:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'BoltIc workflow failed',
+      error: error.message 
+    });
   }
-  
-  // Also trigger BoltIc in background (async, will update via webhook later)
-  callBolticWorkflow(cart).catch(err => {
-    console.log('⚠️  Background BoltIc call failed (not critical):', err.message);
-  });
 });
 
 // Analytics Dashboard Endpoint
