@@ -7,7 +7,11 @@ const router = Router();
 const coupons = [
   {"code":"WELCOME50","type":"percent","value":50,"min_cart_value":100,"max_discount":200,"allowed_categories":[]},
   {"code":"FLAT200","type":"flat","value":200,"min_cart_value":1000,"max_discount":200,"allowed_categories":["electronics"]},
-  {"code":"FOOD10","type":"percent","value":10,"min_cart_value":200,"max_discount":100,"allowed_categories":["grocery","food"]}
+  {"code":"FOOD10","type":"percent","value":10,"min_cart_value":200,"max_discount":100,"allowed_categories":["grocery","food"]},
+  {"code":"FASHION15","type":"percent","value":15,"min_cart_value":500,"max_discount":300,"allowed_categories":["fashion"]},
+  {"code":"GROCERY20","type":"percent","value":20,"min_cart_value":800,"max_discount":250,"allowed_categories":["grocery"]},
+  {"code":"TECH100","type":"flat","value":100,"min_cart_value":2500,"max_discount":100,"allowed_categories":["electronics"]},
+  {"code":"MEGA500","type":"flat","value":500,"min_cart_value":5000,"max_discount":500,"allowed_categories":[]}
 ];
 
 interface CartItem {
@@ -39,7 +43,16 @@ const products = [
   {"id":"p3","name":"Coffee Beans (500g)","price":499,"category":"grocery"},
   {"id":"p4","name":"Running Shoes","price":2499,"category":"fashion"},
   {"id":"p5","name":"T-Shirt Pack","price":799,"category":"fashion"},
-  {"id":"p6","name":"Protein Bar Box","price":1299,"category":"grocery"}
+  {"id":"p6","name":"Protein Bar Box","price":1299,"category":"grocery"},
+  {"id":"p7","name":"Bluetooth Speaker","price":1899,"category":"electronics"},
+  {"id":"p8","name":"Smartwatch Pro","price":3499,"category":"electronics"},
+  {"id":"p9","name":"Organic Honey (1kg)","price":649,"category":"grocery"},
+  {"id":"p10","name":"Almond Pack (500g)","price":899,"category":"grocery"},
+  {"id":"p11","name":"Denim Jacket","price":1799,"category":"fashion"},
+  {"id":"p12","name":"Sneakers White","price":1599,"category":"fashion"},
+  {"id":"p13","name":"USB Cable 3-Pack","price":299,"category":"electronics"},
+  {"id":"p14","name":"Green Tea (250g)","price":399,"category":"grocery"},
+  {"id":"p15","name":"Cotton Socks Pack","price":199,"category":"fashion"}
 ];
 
 const calculateSubtotal = (items: CartItem[]): number => {

@@ -2,7 +2,7 @@ import React from 'react';
 import { useCartStore } from '../store/cartStore';
 
 const CartDrawer: React.FC = () => {
-  const { cart, isCartOpen, closeCart, removeFromCart } = useCartStore();
+  const { cart, isCartOpen, closeCart, removeFromCart, addToCart } = useCartStore();
 
   if (!isCartOpen) return null;
 
@@ -67,8 +67,14 @@ const CartDrawer: React.FC = () => {
                       </button>
                       <span className="text-sm font-semibold w-6 text-center">{item.qty}</span>
                       <button
-                        onClick={() => removeFromCart(item.productId, -1)}
-                        className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-sm font-bold"
+                        onClick={() => addToCart({ 
+                          id: item.productId, 
+                          name: item.name, 
+                          price: item.price, 
+                          category: item.category,
+                          img: '' 
+                        })}
+                        className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center text-sm font-bold"
                       >
                         +
                       </button>

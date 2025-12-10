@@ -31,13 +31,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      {/* Product Image Placeholder */}
-      <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-        <div className="text-6xl opacity-30">📦</div>
+      {/* Product Image */}
+      <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+        <img 
+          src={product.img} 
+          alt={product.name}
+          className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
+          onError={(e) => {
+            // Fallback if image fails to load
+            e.currentTarget.style.display = 'none';
+            e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-6xl opacity-30">📦</div>';
+          }}
+        />
       </div>
       
       {/* Product Info */}
-      <div className="p-5">
+      <div className="p-5">`
         <div className="mb-2">
           <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${getCategoryColor(product.category)}`}>
             {product.category}
