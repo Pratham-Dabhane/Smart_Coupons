@@ -82,10 +82,14 @@ router.post('/add', (req: Request, res: Response) => {
     });
   }
   
-  cart.subtotal = calculateSubtotal(cart.items);
-  cart.total = cart.subtotal - (cart.discount || 0);
+  // Clear coupon when cart changes
+  cart.discount = 0;
+  cart.appliedCoupon = undefined;
   
-  console.log(`✅ Added ${qty}x ${product.name} to cart`);
+  cart.subtotal = calculateSubtotal(cart.items);
+  cart.total = cart.subtotal;
+  
+  console.log(`✅ Added ${qty}x ${product.name} to cart (coupon cleared)`);
   res.json(cart);
 });
 
@@ -108,10 +112,14 @@ router.post('/remove', (req: Request, res: Response) => {
     cart.items.splice(itemIndex, 1);
   }
   
-  cart.subtotal = calculateSubtotal(cart.items);
-  cart.total = cart.subtotal - (cart.discount || 0);
+  // Clear coupon when cart changes
+  cart.discount = 0;
+  cart.appliedCoupon = undefined;
   
-  console.log(`🗑️ Removed item ${productId} from cart`);
+  cart.subtotal = calculateSubtotal(cart.items);
+  cart.total = cart.subtotal;
+  
+  console.log(`🗑️ Removed item ${productId} from cart (coupon cleared)`);
   res.json(cart);
 });
 
