@@ -99,13 +99,16 @@ app.post('/events/cart-updated', async (req: Request, res: Response) => {
     // Forward cart data to BoltIc for AI analysis
     const bolticResult = await callBolticWorkflow(req.body);
     
-    // Store the result for frontend to fetch
-    (global as any).latestCouponSuggestion = {
-      ...bolticResult,
-      timestamp: new Date().toISOString()
-    };
-    
-    console.log('✅ Cart analysis complete and stored');
+    // Only store if we got a valid result with recommendation
+    if (bolticResult && bolticResult.recommendedCoupon) {
+      (global as any).latestCouponSuggestion = {
+        ...bolticResult,
+        timestamp: new Date().toISOString()
+      };
+      console.log('✅ Cart analysis complete and stored');
+    } else {
+      console.log('⚠️  BoltIc result invalid, keeping existing suggestion');
+    }
     console.log('---');
     
     res.status(200).json({ 
@@ -118,6 +121,7 @@ app.post('/events/cart-updated', async (req: Request, res: Response) => {
     console.error('❌ Error processing cart update:', error.message);
     console.log('---');
     
+    // Don't overwrite existing suggestion when BoltIc fails
     // Return success even if BoltIc fails (graceful degradation)
     res.status(200).json({ 
       success: true, 
